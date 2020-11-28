@@ -1,0 +1,26 @@
+{
+  "name": "stream-to-pull-stream",
+  "version": "0.0.1",
+  "description": "a stream-to-pull-stream written in typescript",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/huahang/stream-to-pull-stream.git"
+  },
+  "keywords": [
+    "pull-stream",
+    "stream-to-pull-stream"
+  ],
+  "author": "Hans Liu",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/huahang/stream-to-pull-stream/issues"
+  },
+  "homepage": "https://github.com/huahang/stream-to-pull-stream#readme",
+  "devDependencies": {
+    "git-cz": "^4.7.4"
+  }
+}
