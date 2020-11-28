@@ -13,9 +13,6 @@
     "build": "tsc --project tsconfig.build.json",
     "test": "jest"
   },
-  "publishConfig": {
-    "registry": "https://npm.pkg.github.com/huahang"
-  },
   "repository": {
     "type": "git",
     "url": "ssh://git@github.com:huahang/stream-to-pull-stream.git",
