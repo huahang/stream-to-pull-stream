@@ -1,5 +1,5 @@
 {
-  "name": "stream-to-pull-stream",
+  "name": "@huahang/stream-to-pull-stream",
   "version": "0.0.1",
   "description": "a stream-to-pull-stream written in typescript",
   "main": "dist/index.js",
@@ -13,9 +13,13 @@
     "build": "tsc --project tsconfig.build.json",
     "test": "jest"
   },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/huahang"
+  },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/huahang/stream-to-pull-stream.git"
+    "url": "ssh://git@github.com:huahang/stream-to-pull-stream.git",
+    "directory": "@huahang/stream-to-pull-stream"
   },
   "keywords": [
     "pull-stream",
@@ -31,6 +35,7 @@
     "@types/jest": "^26.0.15",
     "git-cz": "^4.7.4",
     "jest": "^26.6.3",
+    "npmrc": "^1.1.1",
     "rimraf": "^3.0.2",
     "tslint": "^6.1.3"
   },
