@@ -1,68 +1,91 @@
-var pull = require('pull-stream/pull')
-var looper = require('looper')
+import { Readable, Writable, Duplex } from 'stream'
+import * as Pull from 'pull-stream'
+import looper from '@jacobbubu/looper'
 
-function destroy (stream) {
-  if(!stream.destroy)
-    console.error(
-      'warning, stream-to-pull-stream: \n'
-    + 'the wrapped node-stream does not implement `destroy`, \n'
-    + 'this may cause resource leaks.'
-    )
-  else stream.destroy()
-
+function isStdio(stream: any): boolean {
+  return stream._isStdio
 }
 
-function write(read, stream, cb) {
-  var ended, closed = false, did
-  function done () {
-    if(did) return
-    did = true
-    cb && cb(ended === true ? null : ended)
+function destroy(stream: Readable | Writable) {
+  if (!stream.destroy) {
+    console.error(
+      'warning, stream-to-pull-stream: \n'
+      + 'the wrapped node-stream does not implement `destroy`, \n'
+      + 'this may cause resource leaks.'
+    )
+    return
+  }
+  stream.destroy()
+}
+
+export function write<T>(
+  source: Pull.Source<T>,
+  writable: Writable,
+  endCallback: (end: Pull.EndOrError) => void
+): void {
+  let ended: Pull.EndOrError = false
+
+  let doneCalled: boolean = false
+  function done() {
+    if (doneCalled) { return }
+    doneCalled = true
+    if (endCallback) {
+      endCallback(ended === true ? null : ended)
+    }
   }
 
-  function onClose () {
-    if(closed) return
-    closed = true
+  let onCloseCalled: boolean = false
+  function onClose() {
+    if (onCloseCalled) { return }
+    onCloseCalled = true
     cleanup()
-    if(!ended) read(ended = true, done)
-    else       done()
+    if (!ended) {
+      ended = true
+      source(true, done)
+    } else { done() }
   }
-  function onError (err) {
+
+  function onError(err: Error) {
     cleanup()
-    if(!ended) read(ended = err, done)
+    if (!ended) {
+      ended = err
+      source(err, done)
+    }
   }
+
   function cleanup() {
-    stream.on('finish', onClose)
-    stream.removeListener('close', onClose)
-    stream.removeListener('error', onError)
+    writable.on('finish', onClose)
+    writable.removeListener('close', onClose)
+    writable.removeListener('error', onError)
   }
-  stream.on('close', onClose)
-  stream.on('finish', onClose)
-  stream.on('error', onError)
-  process.nextTick(function () {
-    looper(function (next) {
-      read(null, function (end, data) {
-        ended = ended || end
-        //you can't "end" a stdout stream, so this needs to be handled specially.
-        if(end === true)
-          return stream._isStdio ? done() : stream.end()
 
-        if(ended = ended || end) {
-          destroy(stream)
-          return done(ended)
+  writable.on('finish', onClose)
+  writable.on('close', onClose)
+  writable.on('error', onError)
+  process.nextTick(function () {
+    looper(function (next: () => void) {
+      source(null, (end: Pull.EndOrError, data: T | undefined) => {
+        ended = (ended || end)
+        //you can't 'end' a stdout stream, so this needs to be handled specially.
+        if (end === true)
+          return isStdio(writable) ? done() : writable.end()
+
+        if (ended = ended || end) {
+          destroy(writable)
+          return done()
         }
 
         //I noticed a problem streaming to the terminal:
         //sometimes the end got cut off, creating invalid output.
-        //it seems that stdout always emits "drain" when it ends.
+        //it seems that stdout always emits 'drain' when it ends.
         //so this seems to work, but i have been unable to reproduce this test
         //automatically, so you need to run ./test/stdout.js a few times and the end is valid json.
-        if(stream._isStdio)
-          stream.write(data, function () { next() })
+        if (isStdio(writable))
+          writable.write(data, function () { next() })
         else {
-          var pause = stream.write(data)
-          if(pause === false)
-            stream.once('drain', next)
+          var pause = writable.write(data)
+          if (pause === false)
+            writable.once('drain', next)
           else next()
         }
       })
@@ -70,153 +93,142 @@ function write(read, stream, cb) {
   })
 }
 
-function first (emitter, events, handler) {
-  function listener (val) {
-    events.forEach(function (e) {
-      emitter.removeListener(e, listener)
-    })
-    handler(val)
-  }
-  events.forEach(function (e) {
-    emitter.on(e, listener)
-  })
-  return emitter
-}
+export function read2<T>(readable: Readable): Pull.Source<T> {
+  let ended: Pull.EndOrError = false
+  let waiting: boolean = false
+  let cb: Pull.SourceCallback<T> | null
 
-function read2(stream) {
-  var ended = false, waiting = false
-  var _cb
-
-  function read () {
-    var data = stream.read()
-    if(data !== null && _cb) {
-      var cb = _cb; _cb = null
-      cb(null, data)
+  function read() {
+    let data = readable.read()
+    if (data != null && cb) {
+      let callback = cb
+      cb = null
+      callback(null, data)
     }
   }
 
-  stream.on('readable', function () {
+  readable.on('readable', () => {
     waiting = true
-    _cb && read()
+    if (cb) {
+      read()
+    }
   })
-  .on('end', function () {
+  readable.on('end', () => {
     ended = true
-    _cb && _cb(ended)
+    if (cb) {
+      cb(ended)
+    }
   })
-  .on('error', function (err) {
+  readable.on('error', (err: Error) => {
     ended = err
-    _cb && _cb(ended)
+    if (cb) {
+      cb(ended)
+    }
   })
 
-  return function (end, cb) {
-    _cb = cb
-    if(ended)
-      cb(ended)
-    else if(waiting)
+  return (abort: Pull.Abort, callback: Pull.SourceCallback<T>) => {
+    cb = callback
+    if (ended) {
+      callback(ended)
+    } else if (waiting) {
       read()
+    }
   }
 }
 
-function read1(stream) {
-  var buffer = [], cbs = [], ended, paused = false
+export function read1<T>(readable: Readable): Pull.Source<T> {
+  let buffer: T[] = []
+  let callbacks: Pull.SourceCallback<T>[] = []
+  let ended: Pull.EndOrError = false
+  let paused: boolean = false
 
-  var draining
   function drain() {
-    while((buffer.length || ended) && cbs.length)
-      cbs.shift()(buffer.length ? null : ended, buffer.shift())
-    if(!buffer.length && (paused)) {
+    while ((buffer.length > 0 || ended) && callbacks.length > 0) {
+      let callback = callbacks.shift()
+      if (callback) {
+        callback(buffer.length > 0 ? null : ended, buffer.shift())
+      }
+    }
+    if ((buffer.length == 0) && (paused)) {
       paused = false
-      stream.resume()
+      readable.resume()
     }
   }
 
-  stream.on('data', function (data) {
+  readable.on('data', (data: any) => {
     buffer.push(data)
     drain()
-    if(buffer.length && stream.pause) {
+    if (buffer.length && readable.pause) {
       paused = true
-      stream.pause()
+      readable.pause()
     }
   })
-  stream.on('end', function () {
+  readable.on('end', () => {
     ended = true
     drain()
   })
-  stream.on('close', function () {
+  readable.on('close', () => {
     ended = true
     drain()
   })
-  stream.on('error', function (err) {
+  readable.on('error', (err: Error) => {
     ended = err
     drain()
   })
-  return function (abort, cb) {
-    if(!cb) throw new Error('*must* provide cb')
-    if(abort) {
-      function onAbort () {
-        while(cbs.length) cbs.shift()(abort)
-        cb(abort)
-      }
-      //if the stream happens to have already ended, then we don't need to abort.
-      if(ended) return onAbort()
-      stream.once('close', onAbort)
-      destroy(stream)
+
+  return (abort: Pull.Abort, callback: Pull.SourceCallback<T>) => {
+    if (!callback) {
+      throw new Error('*must* provide callback')
     }
-    else {
-      cbs.push(cb)
+
+    function onAbort() {
+      while (callbacks.length > 0) {
+        let cb = callbacks.shift()
+        if (cb) {
+          cb(abort)
+        }
+      }
+      callback(abort)
+    }
+
+    if (abort) {
+      // if the stream happens to have already ended,
+      // then we don't need to abort.
+      if (ended) {
+        return onAbort()
+      }
+      readable.once('close', onAbort)
+      destroy(readable)
+    } else {
+      callbacks.push(callback)
       drain()
     }
   }
 }
 
-var read = read1
+export function read<T>(readable: Readable): Pull.Source<T> {
+  return read1<T>(readable)
+}
 
-var sink = function (stream, cb) {
-  return function (read) {
-    return write(read, stream, cb)
+export function sink<T>(
+  writable: Writable,
+  endCallback: (end: Pull.EndOrError) => void
+): Pull.Sink<T> {
+  return function (source: Pull.Source<T>) {
+    write(source, writable, endCallback)
   }
 }
 
-var source = function (stream) {
-  return read1(stream)
+export function source<T>(readable: Readable): Pull.Source<T> {
+  return read1(readable)
 }
 
-exports = module.exports = function (stream, cb) {
-  return (
-    (stream.writable && stream.write)
-    ? stream.readable
-      ? function(_read) {
-          write(_read, stream, cb);
-          return read1(stream)
-        }
-      : sink(stream, cb)
-    : source(stream)
-  )
-}
-
-exports.sink = sink
-exports.source = source
-exports.read = read
-exports.read1 = read1
-exports.read2 = read2
-exports.duplex = function (stream, cb) {
+export function duplex<In, Out>(
+  duplex: Duplex,
+  endCallback: (end: Pull.EndOrError) => void
+): Pull.Duplex<In, Out> {
   return {
-    source: source(stream),
-    sink: sink(stream, cb)
+    source: source<In>(duplex),
+    sink: sink<Out>(duplex, endCallback)
   }
 }
-exports.transform = function (stream) {
-  return function (read) {
-    var _source = source(stream)
-    sink(stream)(read); return _source
-  }
-}
-
-
-
-
-
-
-
-
-
