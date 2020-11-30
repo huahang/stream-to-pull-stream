@@ -40,6 +40,7 @@
     "tslint": "^6.1.3"
   },
   "dependencies": {
+    "@jacobbubu/looper": "^1.0.0",
     "@types/node": "^14.14.10",
     "@types/pull-stream": "^3.6.2",
     "pull-stream": "^3.6.14",
