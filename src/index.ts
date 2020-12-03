@@ -1,4 +1,4 @@
-import { Readable, Writable, Duplex } from 'stream'
+import { Stream, Readable, Writable, Duplex } from 'stream'
 import * as Pull from 'pull-stream'
 import looper from '@jacobbubu/looper'
 
@@ -134,7 +134,7 @@ export function read2<T>(readable: Readable): Pull.Source<T> {
   }
 }
 
-export function read1<T>(readable: Readable): Pull.Source<T> {
+export function read1<T>(stream: Readable): Pull.Source<T> {
   let buffer: T[] = []
   let callbacks: Pull.SourceCallback<T>[] = []
   let ended: Pull.EndOrError = false
@@ -149,27 +149,27 @@ export function read1<T>(readable: Readable): Pull.Source<T> {
     }
     if ((buffer.length === 0) && (paused)) {
       paused = false
-      readable.resume()
+      stream.resume()
     }
   }
 
-  readable.on('data', (data: any) => {
+  stream.on('data', (data: any) => {
     buffer.push(data)
     drain()
-    if (buffer.length && readable.pause) {
+    if (buffer.length && stream.pause) {
       paused = true
-      readable.pause()
+      stream.pause()
     }
   })
-  readable.on('end', () => {
+  stream.on('end', () => {
     ended = true
     drain()
   })
-  readable.on('close', () => {
+  stream.on('close', () => {
     ended = true
     drain()
   })
-  readable.on('error', (err: Error) => {
+  stream.on('error', (err: Error) => {
     ended = err
     drain()
   })
@@ -195,8 +195,8 @@ export function read1<T>(readable: Readable): Pull.Source<T> {
       if (ended) {
         return onAbort()
       }
-      readable.once('close', onAbort)
-      readable.destroy()
+      stream.once('close', onAbort)
+      stream.destroy()
     } else {
       callbacks.push(callback)
       drain()
@@ -212,13 +212,13 @@ export function sink<T>(
   writable: Writable,
   endCallback: (end?: Error) => void = noop
 ): Pull.Sink<T> {
-  return function (source: Pull.Source<T>) {
+  return function (source: Pull.Source<T>): void {
     write(source, writable, endCallback)
   }
 }
 
 export function source<T>(readable: Readable): Pull.Source<T> {
-  return read1(readable)
+  return read(readable)
 }
 
 export function duplex<In, Out>(
