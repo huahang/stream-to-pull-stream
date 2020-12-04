@@ -19,7 +19,9 @@ export function write<T>(
       return;
     }
     doneCalled = true;
-    endCallback?.apply(endOrError instanceof Error ? endOrError : undefined);
+    if (endCallback) {
+      endCallback(endOrError instanceof Error ? endOrError : undefined);
+    }
   }
 
   let onCloseCalled = false;
@@ -61,7 +63,7 @@ export function write<T>(
         if (!endOrError) {
           endOrError = end;
         }
-        // you can"t "end" a stdout stream, so this needs
+        // you can't 'end' a stdout stream, so this needs
         // to be handled specially.
         if (end === true) {
           return isStdio(writable) ? done() : writable.end();
@@ -73,7 +75,7 @@ export function write<T>(
 
         // I noticed a problem streaming to the terminal:
         // sometimes the end got cut off, creating invalid output.
-        // it seems that stdout always emits "drain" when it ends.
+        // it seems that stdout always emits 'drain' when it ends.
         // so this seems to work, but i have been unable to reproduce this test
         // automatically, so you need to run ./test/stdout.js a few times and
         // the end is valid json.
@@ -195,7 +197,7 @@ export function read1<T>(stream: Readable): Pull.Source<T> {
 
     if (abort) {
       // if the stream happens to have already ended,
-      // then we don"t need to abort.
+      // then we don't need to abort.
       if (ended) {
         return onAbort();
       }
@@ -214,7 +216,7 @@ export function read<T>(readable: Readable): Pull.Source<T> {
 
 export function sink<T>(
   writable: Writable,
-  endCallback?: (end?: Error) => void
+  endCallback: (end?: Error) => void
 ): Pull.Sink<T> {
   return function (source: Pull.Source<T>): void {
     write(source, writable, endCallback);
@@ -227,7 +229,7 @@ export function source<T>(readable: Readable): Pull.Source<T> {
 
 export function duplex<In, Out>(
   duplex: Duplex,
-  endCallback?: (end?: Error) => void
+  endCallback: (end?: Error) => void
 ): Pull.Duplex<In, Out> {
   return {
     source: source<In>(duplex),
