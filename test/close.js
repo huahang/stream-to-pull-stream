@@ -1,29 +1,26 @@
-var pull = require('pull-stream')
-var through = require('through')
-var toPull = require('../dist/index')
+var pull = require("pull-stream");
+var through = require("through");
+var toPull = require("../dist/index");
 
-require('tape')('propagate close back to source', function (t) {
+require("tape")("propagate close back to source", function (t) {
+  t.plan(1);
 
-  t.plan(1)
-
-  var i = 0
+  var i = 0;
 
   var ts = through(function (data) {
-    console.log(data)
-    if (i++ > 100)
-      ts.destroy()
-  })
+    console.log(data);
+    if (i++ > 100) ts.destroy();
+  });
 
   pull(
     pull.infinite(),
     function (read) {
       return function (abort, cb) {
-        if (abort) return t.ok(true), t.end()
-        read(false, cb)
-      }
+        if (abort) return t.ok(true), t.end();
+        read(false, cb);
+      };
     },
     toPull.duplex(ts),
     pull.drain()
-  )
-
-})
+  );
+});
