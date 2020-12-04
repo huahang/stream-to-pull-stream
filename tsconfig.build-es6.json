@@ -1,6 +1,8 @@
 {
   "compilerOptions": {
-    "outDir": "dist"
+    "target": "es6",
+    "module": "es6",
+    "outDir": "es6"
   },
   "extends": "./tsconfig.base",
   "include": ["src"]

@@ -5,12 +5,15 @@
   "main": "dist/index.js",
   "typings": "dist/types/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "es6"
   ],
   "scripts": {
     "lint": "eslint 'src/**/*.ts' && eslint 'test/**/*.js'",
     "prebuild": "rimraf dist es6",
-    "build": "tsc --project tsconfig.build.json",
+    "build": "npm run prebuild && npm run build-cjs && npm run build-es6",
+    "build-cjs": "tsc --project tsconfig.build.json",
+    "build-es6": "tsc --project tsconfig.build-es6.json",
     "test": "set -e; for t in test/*.js; do node $t; done"
   },
   "lint-staged": {
@@ -18,6 +21,11 @@
       "prettier --write",
       "eslint --fix"
     ]
+  },
+  "config": {
+    "commitizen": {
+      "path": "node_modules/cz-conventional-changelog"
+    }
   },
   "repository": {
     "type": "git",
@@ -44,6 +52,7 @@
     "@types/through": "0.0.30",
     "@typescript-eslint/eslint-plugin": "^4.9.0",
     "@typescript-eslint/parser": "^4.9.0",
+    "cz-conventional-changelog": "^3.3.0",
     "eslint": "^7.14.0",
     "eslint-config-google": "^0.14.0",
     "eslint-config-prettier": "^6.15.0",
