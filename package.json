@@ -10,10 +10,8 @@
   ],
   "scripts": {
     "lint": "eslint 'src/**/*.ts' && eslint 'test/**/*.js'",
-    "prebuild": "rimraf dist es6",
-    "build": "npm run prebuild && npm run build-cjs && npm run build-es6",
-    "build-cjs": "tsc --project tsconfig.build.json",
-    "build-es6": "tsc --project tsconfig.build-es6.json",
+    "prebuild": "rimraf dist",
+    "build": "tsc --project tsconfig.build.json",
     "test": "set -e; for t in test/*.js; do node $t; done"
   },
   "lint-staged": {
