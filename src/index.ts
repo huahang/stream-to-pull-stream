@@ -216,7 +216,7 @@ export function read<T>(readable: Readable): Pull.Source<T> {
 
 export function sink<T>(
   writable: Writable,
-  endCallback: (end?: Error) => void
+  endCallback?: (end?: Error) => void
 ): Pull.Sink<T> {
   return function (source: Pull.Source<T>): void {
     write(source, writable, endCallback);
@@ -229,7 +229,7 @@ export function source<T>(readable: Readable): Pull.Source<T> {
 
 export function duplex<In, Out>(
   duplex: Duplex,
-  endCallback: (end?: Error) => void
+  endCallback?: (end?: Error) => void
 ): Pull.Duplex<In, Out> {
   return {
     source: source<In>(duplex),
